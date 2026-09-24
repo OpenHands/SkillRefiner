@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+.cache/
+.pytest_cache/
+.ruff_cache/
+*.secrets.json
+artifact.local.json
+results/*
+!results/.gitkeep
+examples/minimal/output/
+
+# Local data. Only the README is tracked; see datasets/README.md.
+datasets/*
+!datasets/README.md
+
+# Anthropic's proprietary xlsx skill (its LICENSE.txt forbids reproduction).
+# Not redistributed; see baselines/trace2skill/spreadsheet_agent/skills/README.md.
+baselines/trace2skill/spreadsheet_agent/skills/xlsx/

@@ -1,0 +1,56 @@
+{
+  "_note": "Copy this file to artifact.local.json (already gitignored) and fill in your own machine-specific values. Only `llm_base_urls` is actually read from this file (by skill_refiner/pipeline.py and scripts/_llm_config.py, as a fallback after env vars / --base-url); every other key here is documentation of an env var or CLI flag you set yourself -- see README > 'Local configuration' for exactly where each is read in code.",
+
+  "embedding_cache_dir": {
+    "value": "/path/to/your/embedding/cache",
+    "used_by": [
+      "skill_refiner/cluster/umap_hdbscan.py (_DEFAULT_CACHE_DIR)",
+      "skill_refiner/propose/clustered.py (_DEFAULT_CACHE_DIR)"
+    ],
+    "wired": "No env var yet. Default is <repo_root>/.cache/skill_refiner/summary_clustering (resolved relative to the repo, gitignored). Override by passing cache_dir= explicitly to ClusteredTraceDrivenRefiner(...) or cluster_summaries(...)."
+  },
+
+  "embedding_api_key_env_var": {
+    "value": "<your-api-key-env-var>",
+    "used_by": ["skill_refiner/pipeline.py", "skill_refiner/propose/clustered.py"],
+    "wired": "env var EMBEDDING_API_KEY"
+  },
+
+  "llm_base_urls": {
+    "value": {
+      "eval_proxy": "https://your-llm-proxy.example.com"
+    },
+    "used_by": [
+      "skill_refiner/pipeline.py (_resolve_provider_base_url, _build_llm)",
+      "scripts/_llm_config.py (_resolve_llm_config)"
+    ],
+    "wired": "Read from artifact.local.json if present, keyed by provider name under llm_base_urls. `eval_proxy` is the only provider shipped -- it is the one the configuration of record used, and both call sites fail loudly on any other name rather than falling back. Resolution order: --base-url flag (scripts only) / SKILL_REFINER_BASE_URL_EVAL_PROXY env var (skill_refiner.pipeline) or LLM_BASE_URL (scripts/_llm_config.py), then this file's llm_base_urls.eval_proxy. No baked-in default: both call sites raise/exit loudly, naming the missing provider, instead of silently trying a placeholder host."
+  },
+  "llm_api_key_env_var": {
+    "value": "<your-api-key-env-var>",
+    "used_by": ["scripts/_llm_config.py (_API_KEY_ENV_CANDIDATES)"],
+    "wired": "one of env vars LLM_API_KEY, OPENAI_API_KEY (checked in that order), or a --secrets-file JSON with the same keys"
+  },
+  "llm_secrets_file": {
+    "value": "/path/to/.llm.secrets.json",
+    "used_by": ["scripts/benchmarks/**/*.py (--secrets-file)"],
+    "wired": "--secrets-file CLI flag; filename pattern *.secrets.json is already gitignored so any local secrets file you create here is never tracked"
+  },
+
+  "openai_base_url": {
+    "value": "http://localhost:8000/v1",
+    "used_by": ["baselines/trace2skill/**/*.py"],
+    "wired": "env var OPENAI_BASE_URL (Trace2Skill baseline code, independent of scripts/_llm_config.py)"
+  },
+  "openai_api_key_env_var": {
+    "value": "<your-api-key-env-var>",
+    "used_by": ["baselines/trace2skill/**/*.py"],
+    "wired": "env var OPENAI_API_KEY"
+  },
+
+  "spreadsheetbench_data_path": {
+    "value": "/path/to/spreadsheetbench_verified_400",
+    "used_by": ["scripts/benchmarks/spreadsheetbench/spreadsheetbench_agent_runner.py (DEFAULT_DATA_PATH)"],
+    "wired": "--data-path CLI flag; the default points at a repo-relative baselines/trace2skill/data/... path that only exists after you fetch the official SpreadsheetBench dataset (see README)"
+  }
+}
