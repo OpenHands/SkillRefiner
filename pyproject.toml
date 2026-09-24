@@ -1,0 +1,118 @@
+[project]
+name = "skill-refiner"
+version = "1.0.0"
+description = "SkillRefiner: refining agent skills from execution traces."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.13"
+dependencies = [
+    # Versions are pinned with `==` to the exact set the measured runs were
+    # produced on -- not merely bounded. See README > "Dependency versions are
+    # pinned to the configuration of record". Two independent reasons:
+    #
+    #  1. Prompt budget packing calls ``litellm.token_counter``. Its token
+    #     counts differ between litellm releases, so a different litellm packs a
+    #     different number of trace summaries into the same budget -- 31 vs 30
+    #     in the per-cluster proposal prompt, measured between litellm 1.87.0
+    #     and 1.94.3. A different prompt is a different experiment.
+    #  2. The clustering stack (umap-learn / hdbscan / scikit-learn / numpy /
+    #     numba and their numeric transitives) determines the cluster counts
+    #     reported in the paper. It does not fail loudly on a version change; it
+    #     silently returns *different clusters*, which is the harder failure to
+    #     notice.
+    #
+    # An additional, separate reason the litellm version cannot float upward:
+    # litellm 1.95.0 added a mirroring ``PromptTokensDetailsWrapper.__setattr__``
+    # that leaves ``cache_creation_tokens`` in ``model_fields_set`` while
+    # deleting the attribute, which makes openhands-sdk's ``normalize_usage``
+    # raise AttributeError on *every* completion.
+    "gepa==0.1.4",
+    "hdbscan==0.8.44",
+    "litellm==1.87.0",
+    "numba==0.66.0",
+    "numpy==2.4.6",
+    "openai==2.40.0",
+    "openhands-sdk==1.24.0",
+    "openhands-tools==1.24.0",
+    "openpyxl==3.1.5",
+    # Imported directly by skill_refiner/ (SecretStr, BaseModel, Field) but was
+    # previously reaching the environment only as a transitive of the agent SDK.
+    "pydantic==2.13.4",
+    "scikit-learn==1.9.0",
+    "tomlkit==0.15.1",
+    "tqdm==4.67.3",
+    "umap-learn==0.5.12",
+    # Not imported by this repo's code, but part of the numeric layer under
+    # UMAP/HDBSCAN: they change embedding-reduction and cluster results without
+    # changing any API. Pinned to the record's versions for the same reason as
+    # the clustering stack above.
+    "joblib==1.5.3",
+    "llvmlite==0.48.0",
+    "pynndescent==0.5.13",
+    "scipy==1.18.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "TID", "TC"]
+
+[tool.ruff.lint.per-file-ignores]
+# Modules under skill_refiner/ are moved verbatim from the research repo and are
+# held byte-identical to their source so the artifact provably ships the measured
+# configuration. Their long prompt-string literals cannot be reflowed, so E501 is
+# not enforced here. Every other lint rule still applies, and E501 is still
+# enforced across tests/ and scripts/ (see the baselines/** entry below for why that
+# tree gets a broader carve-out).
+"skill_refiner/**" = ["E501"]
+# baselines/ vendors Trace2Skill and GEPA comparison-baseline code verbatim from the
+# research repo, carried faithfully so the artifact ships exactly what was measured.
+# It was never linted to this project's rules (only its skill_lab imports were
+# rewritten to skill_refiner), so the full set of codes ruff actually raises on it is
+# suppressed here rather than reformatting someone else's baseline implementation.
+"baselines/**" = [
+    "E501",   # line-too-long: long vendored strings/URLs
+    "E402",   # module-import-not-at-top-of-file: intentional sys.path.insert-then-import
+    "E702",   # multiple-statements-on-one-line-semicolon
+    "E721",   # type-comparison
+    "F401",   # unused-import
+    "F541",   # f-string-missing-placeholders
+    "F841",   # unused-variable
+    "I001",   # unsorted-imports
+    "UP015",  # redundant-open-modes
+    "UP028",  # yield-in-for-loop
+    "UP033",  # lru-cache-with-maxsize-none
+    "UP035",  # deprecated-import
+    "UP037",  # quoted-annotation
+    "B007",   # unused-loop-control-variable
+    "B905",   # zip-without-explicit-strict
+    "SIM102", # collapsible-if
+    "SIM105", # suppressible-exception
+    "SIM108", # if-else-block-instead-of-if-exp
+    "SIM110", # reimplemented-builtin
+    "TID252", # relative-imports: vendored package uses its own relative-import style
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# The default run is offline and network-free: `live` tests are deselected here,
+# not merely skipped, so `uv run pytest` collects zero of them. Passing `-m live`
+# on the command line overrides this (pytest's `-m` is last-wins), which is how
+# `uv run pytest -m live` selects them.
+addopts = "-m 'not live'"
+markers = [
+    "live: makes a real LLM call over the network. Deselected by default. Run with `uv run pytest -m live`. The offline suite stubs every LLM call and so cannot detect dependency-level LLM breakage -- this marker covers that gap (see tests/test_live_llm_smoke.py).",
+]
+
+[dependency-groups]
+dev = ["pytest>=9.0.3", "pytest-asyncio>=1.4.0", "ruff>=0.15.15"]
